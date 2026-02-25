@@ -1,0 +1,42 @@
+okta.ini
+okta.json
+okta-default.json
+okta-web.json
+okta-client-secret-api.json
+okta-client-assertion-api.json
+okta-web.json
+okta-private-key.pem
+okta-public-key.json
+test-configuration-1fa.json
+test-configuration-ai-agent.json
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+.*.sw*
+.sw*

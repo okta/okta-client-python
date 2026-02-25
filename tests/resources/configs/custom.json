@@ -1,0 +1,5 @@
+{
+  "issuer": "https://example.com",
+  "client_id": "override",
+  "scope": "openid profile"
+}

@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okta-client"
+version = "0.1.0"
+description = "Okta Client SDK (Python)"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Okta Developers", email = "developer@okta.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyjwt[crypto]>=2.6,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7,<9"]
+dev = [
+    "pytest>=7,<9",
+    "pytest-cov>=4,<6",
+    "ruff>=0.4,<1",
+    "build>=1,<2",
+    "selenium>=4,<5",
+]
+
+[project.urls]
+Homepage = "https://github.com/okta/okta-client-python"
+Documentation = "https://github.com/okta/okta-client-python#readme"
+Repository = "https://github.com/okta/okta-client-python"
+Issues = "https://github.com/okta/okta-client-python/issues"
+Changelog = "https://github.com/okta/okta-client-python/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+okta_client = ["py.typed"]
+
+# ---------- Ruff ----------
+[tool.ruff]
+target-version = "py310"
+line-length = 127
+src = ["src", "tests", "samples"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "W",     # pycodestyle warnings
+    "I",     # isort
+    "UP",    # pyupgrade (includes UP007 Optional->X|None)
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long - handled by formatter / editorconfig
+    "UP007",  # Optional[X] -> X | None - enable when ready for bulk migration
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["okta_client"]
+
+# ---------- Pytest ----------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests that require external services and secrets",
+]
+addopts = "--strict-markers"
+
+# ---------- Coverage ----------
+[tool.coverage.run]
+source = ["okta_client"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
