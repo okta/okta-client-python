@@ -1,0 +1,7 @@
+{
+  "issuer": "https://example.com",
+  "client_id": "client-assertion",
+  "scope": "openid profile",
+  "client_assertion": "assertion-jwt",
+  "custom_param": "value"
+}
