@@ -37,25 +37,11 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 
-check-dist:
-	@if [ ! -d "dist" ] || [ -z "$$(ls -A dist 2>/dev/null)" ]; then \
-		echo "No distribution files found. Run 'make build' first."; \
-		exit 1; \
-	fi
+check-dist: build
 	$(PYTHON) -m twine check dist/*
 
-publish-test:
-	@if [ ! -d "dist" ] || [ -z "$$(ls -A dist 2>/dev/null)" ]; then \
-		echo "No distribution files found. Run 'make build' first."; \
-		exit 1; \
-	fi
-	$(PYTHON) -m twine check dist/*
+publish-test: clean build check-dist
 	$(PYTHON) -m twine upload --repository testpypi dist/*
 
-publish:
-	@if [ ! -d "dist" ] || [ -z "$$(ls -A dist 2>/dev/null)" ]; then \
-		echo "No distribution files found. Run 'make build' first."; \
-		exit 1; \
-	fi
-	$(PYTHON) -m twine check dist/*
+publish: clean build check-dist
 	$(PYTHON) -m twine upload dist/*
