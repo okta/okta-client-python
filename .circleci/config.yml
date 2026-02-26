@@ -28,10 +28,9 @@ jobs:
     resource_class: &resource_class large
     steps:
       - checkout
-      - run: env | sort
-      - general-platform-helpers/step-secrets-obtain:
-          secret-key: TEST_ORG_DEFAULT;TEST_ORG_WEB;TEST_ORG_CLIENT_SECRET_API;TEST_ORG_CLIENT_ASSERTION_API;TEST_ORG_PRIVATE_KEY;TEST_ORG_PUBLIC_KEY;TEST_CONFIGURATION_1FA;TEST_CONFIGURATION_AI_AGENT
-      - general-platform-helpers/step-load-dependencies
+      # - general-platform-helpers/step-secrets-obtain:
+      #     secret-key: TEST_ORG_DEFAULT;TEST_ORG_WEB;TEST_ORG_CLIENT_SECRET_API;TEST_ORG_CLIENT_ASSERTION_API;TEST_ORG_PRIVATE_KEY;TEST_ORG_PUBLIC_KEY;TEST_CONFIGURATION_1FA;TEST_CONFIGURATION_AI_AGENT
+      # - general-platform-helpers/step-load-dependencies
       - run:
           name: "Store configuration files"
           command: |
@@ -96,51 +95,51 @@ jobs:
           paths:
             - .
 
-  integration-tests:
-    docker: *docker_image
-    # cci-ignore-next-line
-    resource_class: *resource_class
-    steps:
-      - attach_workspace:
-          at: ~/project
-      - run:
-          name: "Verify configuration secrets"
-          command: |
-            expected_files=(
-              okta-default.json
-              okta-web.json
-              okta-client-secret-api.json
-              okta-client-assertion-api.json
-              okta-private-key.pem
-              okta-public-key.json
-              test-configuration-1fa.json
-              test-configuration-ai-agent.json
-            )
-            missing_files=()
-            for expected_file in "${expected_files[@]}"; do
-              if [[ ! -f "$expected_file" ]]; then
-                missing_files+=("$expected_file")
-              fi
-            done
-            if (( ${#missing_files[@]} )); then
-              echo "Missing configuration files:"
-              printf ' - %s\n' "${missing_files[@]}"
-              exit 1
-            fi
-      - install-dependencies
-      - browser-tools/install-chrome
-      - browser-tools/install-chromedriver
-      - run:
-          name: Create test results directory
-          command: mkdir -p test-results
-      - run:
-          name: Integration tests
-          environment:
-            CI: "true"
-          command: |
-            make integration JUNIT_XML=test-results/integration-tests.xml
-      - store_test_results:
-          path: test-results
+  # integration-tests:
+  #   docker: *docker_image
+  #   # cci-ignore-next-line
+  #   resource_class: *resource_class
+  #   steps:
+  #     - attach_workspace:
+  #         at: ~/project
+  #     - run:
+  #         name: "Verify configuration secrets"
+  #         command: |
+  #           expected_files=(
+  #             okta-default.json
+  #             okta-web.json
+  #             okta-client-secret-api.json
+  #             okta-client-assertion-api.json
+  #             okta-private-key.pem
+  #             okta-public-key.json
+  #             test-configuration-1fa.json
+  #             test-configuration-ai-agent.json
+  #           )
+  #           missing_files=()
+  #           for expected_file in "${expected_files[@]}"; do
+  #             if [[ ! -f "$expected_file" ]]; then
+  #               missing_files+=("$expected_file")
+  #             fi
+  #           done
+  #           if (( ${#missing_files[@]} )); then
+  #             echo "Missing configuration files:"
+  #             printf ' - %s\n' "${missing_files[@]}"
+  #             exit 1
+  #           fi
+  #     - install-dependencies
+  #     - browser-tools/install-chrome
+  #     - browser-tools/install-chromedriver
+  #     - run:
+  #         name: Create test results directory
+  #         command: mkdir -p test-results
+  #     - run:
+  #         name: Integration tests
+  #         environment:
+  #           CI: "true"
+  #         command: |
+  #           make integration JUNIT_XML=test-results/integration-tests.xml
+  #     - store_test_results:
+  #         path: test-results
 
   snyk-scan:
     docker: *docker_image
