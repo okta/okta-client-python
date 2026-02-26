@@ -25,9 +25,10 @@ jobs:
     docker: &docker_image
       - image: cimg/python:3.11.14
     # cci-ignore-next-line
-    resource_class: &resource_class atko-eng/containeragent_prod-worker_aue1k_linux-small
+    resource_class: &resource_class large
     steps:
       - checkout
+      - run: env | sort
       - general-platform-helpers/step-secrets-obtain:
           secret-key: TEST_ORG_DEFAULT;TEST_ORG_WEB;TEST_ORG_CLIENT_SECRET_API;TEST_ORG_CLIENT_ASSERTION_API;TEST_ORG_PRIVATE_KEY;TEST_ORG_PUBLIC_KEY;TEST_CONFIGURATION_1FA;TEST_CONFIGURATION_AI_AGENT
       - general-platform-helpers/step-load-dependencies
