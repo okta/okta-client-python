@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   # cci-ignore-start
-  general-platform-helpers: okta/eng-services-platform-helpers-general@6
+  general-platform-helpers: atko-eng/eng-services-platform-helpers-general@6
   browser-tools: circleci/browser-tools@1
   # cci-ignore-end
 
