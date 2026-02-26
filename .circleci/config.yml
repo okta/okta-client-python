@@ -22,10 +22,9 @@ commands:
 
 jobs:
   setup:
-    docker: &docker_image
-      - image: registry.aue1e.internal/atko-eng-services/cimg/python:3.11.14-d4cbe51
-    # cci-ignore-next-line
-    resource_class: &resource_class atko-eng/containeragent_prod-worker_aue1k_linux-small
+    docker:
+      - image: cimg/python:3.10
+    resource_class: large
     steps:
       - checkout
       - general-platform-helpers/step-secrets-obtain:
@@ -64,9 +63,9 @@ jobs:
             - .
 
   build_and_test:
-    docker: *docker_image
-    # cci-ignore-next-line
-    resource_class: *resource_class
+    docker:
+      - image: cimg/python:3.10
+    resource_class: large
     steps:
       - attach_workspace:
           at: ~/project
@@ -96,9 +95,9 @@ jobs:
             - .
 
   integration-tests:
-    docker: *docker_image
-    # cci-ignore-next-line
-    resource_class: *resource_class
+    docker:
+      - image: cimg/python:3.10
+    resource_class: large
     steps:
       - attach_workspace:
           at: ~/project
@@ -142,9 +141,9 @@ jobs:
           path: test-results
 
   snyk-scan:
-    docker: *docker_image
-    # cci-ignore-next-line
-    resource_class: *resource_class
+    docker:
+      - image: cimg/python:3.10
+    resource_class: large
     steps:
       - attach_workspace:
           at: ~/project
