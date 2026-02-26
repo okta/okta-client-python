@@ -37,6 +37,7 @@ dev = [
     "ruff>=0.4,<1",
     "build>=1,<2",
     "selenium>=4,<5",
+    "twine>=5,<6",
 ]
 
 [project.urls]

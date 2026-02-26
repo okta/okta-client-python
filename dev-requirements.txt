@@ -3,4 +3,4 @@ pytest-cov>=4,<6
 ruff>=0.4,<1
 build>=1,<2
 selenium>=4,<5
-twine>=5,<6
+twine>=6,<7
