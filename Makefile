@@ -7,7 +7,7 @@ else
 JUNIT_FLAG :=
 endif
 
-.PHONY: test test-cov integration lint lint-fix build deps
+.PHONY: test test-cov integration lint lint-fix build deps clean publish-test publish check-dist
 
 test:
 	$(PYTHON) -m pytest tests -m "not integration" $(JUNIT_FLAG)
@@ -31,3 +31,18 @@ deps:
 	$(PYTHON) -m pip install -r requirements.txt
 	$(PYTHON) -m pip install -r dev-requirements.txt
 	$(PYTHON) -m pip install -e ".[dev]"
+
+clean:
+	rm -rf dist/ build/ *.egg-info src/*.egg-info
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+check-dist:
+	$(PYTHON) -m twine check dist/*
+
+publish-test:
+	$(PYTHON) -m twine upload --repository testpypi dist/*
+
+publish:
+	$(PYTHON) -m twine upload dist/*
+
