@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "okta-client"
+name = "okta-client-python"
 version = "0.1.0"
 description = "Okta Client SDK (Python)"
 readme = "README.md"
