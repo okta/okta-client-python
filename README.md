@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/okta-client-python)](https://pypi.org/project/okta-client-python/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/okta-client-python)](https://pypi.org/project/okta-client-python/)
-[![License](https://img.shields.io/pypi/l/okta-client-python)](LICENSE)
+[![License](https://img.shields.io/pypi/l/okta-client-python)](LICENSE.md)
 
 The Okta Client SDK represents a collection of SDKs for different languages, each of which itself is a modular ecosystem of libraries that build upon one-another to enable client applications to:
 
