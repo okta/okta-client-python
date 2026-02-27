@@ -13,7 +13,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__: str = version("okta-client")
+    __version__: str = version("okta-client-python")
 except PackageNotFoundError:  # pragma: no cover - not installed
     __version__ = "0.0.0-dev"
 

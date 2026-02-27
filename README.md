@@ -2,9 +2,9 @@
 
 # Okta Client SDK for Python
 
-[![PyPI](https://img.shields.io/pypi/v/okta-client)](https://pypi.org/project/okta-client/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/okta-client)](https://pypi.org/project/okta-client/)
-[![License](https://img.shields.io/pypi/l/okta-client)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/okta-client-python)](https://pypi.org/project/okta-client-python/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/okta-client-python)](https://pypi.org/project/okta-client-python/)
+[![License](https://img.shields.io/pypi/l/okta-client-python)](LICENSE)
 
 The Okta Client SDK represents a collection of SDKs for different languages, each of which itself is a modular ecosystem of libraries that build upon one-another to enable client applications to:
 
@@ -78,7 +78,7 @@ print("Access token:", token.access_token)
 Install via pip:
 
 ```bash
-pip install okta-client
+pip install okta-client-python
 ```
 
 Or install from source:
