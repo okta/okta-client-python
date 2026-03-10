@@ -20,6 +20,7 @@ from okta_client.authfoundation import (
     APIRequestMethod,
     APIResponse,
     APIRetry,
+    DefaultNetworkInterface,
     HTTPRequest,
     NetworkInterface,
     RawResponse,
@@ -176,3 +177,40 @@ def test_api_client_delegates_can_mutate_request() -> None:
     assert network.last_headers is not None
     assert "X-Delegate" in network.last_headers
     assert listener.events == ["will_send", "did_send"]
+
+
+# ---------------------------------------------------------------------------
+# DefaultNetworkInterface tests
+# ---------------------------------------------------------------------------
+
+import urllib.request
+
+
+def test_default_network_interface_no_proxy() -> None:
+    """When no proxy is provided, no custom opener is created."""
+    net = DefaultNetworkInterface()
+    assert net.proxy is None
+    assert net._opener is None
+
+
+def test_default_network_interface_with_proxy() -> None:
+    """When a proxy is provided, a custom opener with ProxyHandler is created."""
+    proxy_url = "http://proxy.example.com:8080"
+    net = DefaultNetworkInterface(proxy=proxy_url)
+    assert net.proxy == proxy_url
+    assert net._opener is not None
+
+    # Verify the opener contains a ProxyHandler with the expected proxies.
+    handler_types = [type(h) for h in net._opener.handlers]
+    assert urllib.request.ProxyHandler in handler_types
+
+    proxy_handler = next(h for h in net._opener.handlers if isinstance(h, urllib.request.ProxyHandler))
+    assert proxy_handler.proxies.get("http") == proxy_url
+    assert proxy_handler.proxies.get("https") == proxy_url
+
+
+def test_default_network_interface_proxy_none_explicit() -> None:
+    """Explicitly passing proxy=None behaves the same as omitting it."""
+    net = DefaultNetworkInterface(proxy=None)
+    assert net.proxy is None
+    assert net._opener is None

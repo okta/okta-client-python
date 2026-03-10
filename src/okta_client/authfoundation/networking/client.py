@@ -180,7 +180,24 @@ class APIClient:
 
 
 class DefaultNetworkInterface(NetworkInterface):
-    """Default network interface using urllib.request."""
+    """Default network interface using urllib.request.
+
+    Args:
+        proxy: Optional proxy URL (e.g. ``"http://proxy.example.com:8080"``).
+            When provided, all outgoing requests are routed through this proxy.
+            Supports ``http`` and ``https`` schemes.  When ``None`` (the
+            default), no proxy is used and requests go directly to the host.
+    """
+
+    def __init__(self, proxy: str | None = None) -> None:
+        self.proxy = proxy
+        if proxy is not None:
+            proxy_handler = urllib.request.ProxyHandler(
+                {"http": proxy, "https": proxy}
+            )
+            self._opener = urllib.request.build_opener(proxy_handler)
+        else:
+            self._opener = None
 
     def send(self, request: HTTPRequest) -> RawResponse:
         req = urllib.request.Request(
@@ -189,8 +206,9 @@ class DefaultNetworkInterface(NetworkInterface):
             headers=request.headers,
             method=request.method.value,
         )
+        open_fn = self._opener.open if self._opener is not None else urllib.request.urlopen
         try:
-            with urllib.request.urlopen(req, timeout=request.timeout) as response:
+            with open_fn(req, timeout=request.timeout) as response:
                 body = response.read() or b""
                 headers = {k: v for k, v in response.headers.items()}
                 return RawResponse(status_code=response.status, headers=headers, body=body)

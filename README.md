@@ -176,7 +176,6 @@ config = OAuth2ClientConfiguration(
 
 ---
 
-
 ### Client Authorization Strategies
 
 The `client_authorization` field controls how the client authenticates with the
@@ -852,6 +851,109 @@ flow.listeners.add(MyListener())
 ```
 
 </details>
+
+## Customization
+
+This SDK is designed to be flexible and customizable to fit a variety of use-cases and application requirements. The core components of the SDK are built with extension points that allow you to modify or enhance the default behavior.
+
+### Custom Network Interface
+
+By default, all HTTP requests are sent through `DefaultNetworkInterface`, which
+uses Python's built-in `urllib.request`. You can customize networking behavior in
+several ways.
+
+#### Using an HTTP/HTTPS Proxy
+
+`DefaultNetworkInterface` accepts an optional `proxy` parameter to route all
+outgoing requests through a proxy server:
+
+```python
+from okta_client.authfoundation import (
+    DefaultNetworkInterface,
+    OAuth2Client,
+    OAuth2ClientConfiguration,
+)
+
+config = OAuth2ClientConfiguration.from_file("okta.json")
+network = DefaultNetworkInterface(proxy="http://proxy.example.com:8080")
+client = OAuth2Client(configuration=config, network=network)
+```
+
+Both `http` and `https` requests are routed through the given proxy URL.
+
+#### Setting a Global Default Network Interface
+
+If you want every new `OAuth2Client` to use a custom network interface without
+passing it to each constructor, set the class-level default:
+
+```python
+from okta_client.authfoundation import DefaultNetworkInterface, OAuth2Client
+
+# All new OAuth2Client instances will use this proxy
+OAuth2Client.set_default_network(
+    DefaultNetworkInterface(proxy="http://proxy.example.com:8080")
+)
+
+# No need to pass network= — the default is picked up automatically
+client = OAuth2Client(configuration=config)
+```
+
+The resolution order for the network interface is:
+
+1. An explicit `network=` argument passed to the `OAuth2Client` constructor.
+2. The class-level default set via `OAuth2Client.set_default_network(...)`.
+3. A plain `DefaultNetworkInterface()` (no proxy).
+
+Reset the default at any time with `OAuth2Client.set_default_network(None)`.
+
+> **Note:** Changing the class-level default only affects _newly-created_
+> instances. Existing clients retain whatever network interface they were
+> constructed with.
+
+#### Writing a Custom Network Interface
+
+If you prefer a different HTTP library (for example, `requests` or `httpx`), you
+can implement the `NetworkInterface` protocol and pass it to any client:
+
+```python
+import httpx
+
+from okta_client.authfoundation import (
+    HTTPRequest,
+    NetworkInterface,
+    OAuth2Client,
+    OAuth2ClientConfiguration,
+    RawResponse,
+)
+
+class HttpxNetwork(NetworkInterface):
+    """NetworkInterface backed by httpx."""
+
+    def __init__(self) -> None:
+        self._client = httpx.Client()
+
+    def send(self, request: HTTPRequest) -> RawResponse:
+        response = self._client.request(
+            method=request.method.value,
+            url=request.url,
+            headers=request.headers,
+            content=request.body,
+            timeout=request.timeout,
+        )
+        return RawResponse(
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            body=response.content,
+        )
+
+
+config = OAuth2ClientConfiguration.from_file("okta.json")
+client = OAuth2Client(configuration=config, network=HttpxNetwork())
+```
+
+Your implementation only needs to satisfy the `NetworkInterface` protocol by
+providing a `send(request: HTTPRequest) -> RawResponse` method. The SDK handles
+serialization, headers, and response parsing around it.
 
 ## Development
 
