@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
@@ -60,13 +61,49 @@ class OAuth2ClientListener(APIClientListener, Protocol):
 
 
 class OAuth2Client(APIClient):
+    """OAuth 2.0-aware HTTP client that extends :class:`APIClient`.
+
+    Args:
+        configuration: The OAuth2 client configuration.
+        network: Optional transport implementation. When ``None``, falls back
+            to :meth:`get_default_network` if set, otherwise
+            :class:`DefaultNetworkInterface`.
+        time_provider: Optional callable returning the current time as a float.
+    """
+
+    _default_network: NetworkInterface | None = None
+    _default_network_lock: threading.Lock = threading.Lock()
+
+    @classmethod
+    def get_default_network(cls) -> NetworkInterface | None:
+        """Return the current class-level default network interface.
+
+        Thread-safe.  Returns ``None`` when no default has been set.
+        """
+        with cls._default_network_lock:
+            return cls._default_network
+
+    @classmethod
+    def set_default_network(cls, network: NetworkInterface | None) -> None:
+        """Set (or clear) the class-level default network interface.
+
+        Only affects newly-created instances; existing instances retain
+        their current network interface.  Pass ``None`` to revert to the
+        platform default (:class:`DefaultNetworkInterface`).
+
+        Thread-safe.
+        """
+        with cls._default_network_lock:
+            cls._default_network = network
+
     def __init__(
         self,
         configuration: OAuth2ClientConfiguration,
         network: NetworkInterface | None = None,
         time_provider: Callable[[], float] | None = None,
     ) -> None:
-        super().__init__(configuration=configuration, network=network)
+        resolved_network = network or self.get_default_network() or None
+        super().__init__(configuration=configuration, network=resolved_network)
         self.configuration = configuration
         self._sdk_user_agent = sdk_user_agent()
         self._time_provider = time_provider or time.time

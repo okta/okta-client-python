@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from okta_client.authfoundation import HTTPRequest, NetworkInterface, OAuth2Client, OAuth2ClientConfiguration, RawResponse
-from okta_client.authfoundation.networking import APIContentType, APIRequestMethod, RequestValue
+from okta_client.authfoundation.networking import APIContentType, APIRequestMethod, DefaultNetworkInterface, RequestValue
 from okta_client.authfoundation.oauth2 import NullIDTokenValidatorContext
 from okta_client.authfoundation.oauth2.client_authorization import (
     ClientAssertionAuthorization,
@@ -398,3 +398,79 @@ class TestUpdateClientAuthorization:
         client.update_client_authorization(new_auth)
 
         assert client.configuration.client_authorization is new_auth
+
+
+# ---------------------------------------------------------------------------
+# Default network tests
+# ---------------------------------------------------------------------------
+
+
+def _make_default_network_config() -> OAuth2ClientConfiguration:
+    return OAuth2ClientConfiguration(
+        issuer="https://example.com",
+        scope=["openid"],
+        client_authorization=ClientIdAuthorization(id="client"),
+    )
+
+
+class TestDefaultNetwork:
+    """Tests for OAuth2Client.get/set_default_network class-level property."""
+
+    def teardown_method(self) -> None:
+        """Reset the class-level default after every test."""
+        OAuth2Client.set_default_network(None)
+
+    def test_default_is_none(self) -> None:
+        """get_default_network returns None when nothing has been set."""
+        assert OAuth2Client.get_default_network() is None
+
+    def test_no_network_uses_default_network_interface(self) -> None:
+        """When no network or default_network is set, DefaultNetworkInterface is used."""
+        client = OAuth2Client(configuration=_make_default_network_config())
+        assert isinstance(client.network, DefaultNetworkInterface)
+
+    def test_class_level_override(self) -> None:
+        """Setting a class-level default causes new clients to pick it up."""
+        custom = DummyNetwork()
+        OAuth2Client.set_default_network(custom)
+
+        client = OAuth2Client(configuration=_make_default_network_config())
+        assert client.network is custom
+
+    def test_per_instance_override_takes_precedence(self) -> None:
+        """Explicit network= in the constructor wins over default_network."""
+        class_network = DummyNetwork()
+        instance_network = DummyNetwork()
+        OAuth2Client.set_default_network(class_network)
+
+        client = OAuth2Client(
+            configuration=_make_default_network_config(),
+            network=instance_network,
+        )
+        assert client.network is instance_network
+        assert client.network is not class_network
+
+    def test_reset_to_none_reverts_to_default(self) -> None:
+        """Clearing the class-level default reverts to DefaultNetworkInterface."""
+        custom = DummyNetwork()
+        OAuth2Client.set_default_network(custom)
+
+        # Verify the custom default is in effect.
+        client1 = OAuth2Client(configuration=_make_default_network_config())
+        assert client1.network is custom
+
+        # Reset and verify revert.
+        OAuth2Client.set_default_network(None)
+        client2 = OAuth2Client(configuration=_make_default_network_config())
+        assert isinstance(client2.network, DefaultNetworkInterface)
+
+    def test_existing_instance_not_affected(self) -> None:
+        """Changing the class default does not retroactively change existing instances."""
+        client = OAuth2Client(configuration=_make_default_network_config())
+        original_network = client.network
+
+        custom = DummyNetwork()
+        OAuth2Client.set_default_network(custom)
+
+        assert client.network is original_network
+        assert client.network is not custom
