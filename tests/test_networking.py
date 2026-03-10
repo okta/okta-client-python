@@ -8,6 +8,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 # coding: utf-8
 
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -182,8 +183,6 @@ def test_api_client_delegates_can_mutate_request() -> None:
 # ---------------------------------------------------------------------------
 # DefaultNetworkInterface tests
 # ---------------------------------------------------------------------------
-
-import urllib.request
 
 
 def test_default_network_interface_no_proxy() -> None:
