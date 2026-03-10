@@ -66,7 +66,7 @@ class OAuth2Client(APIClient):
     Args:
         configuration: The OAuth2 client configuration.
         network: Optional transport implementation. When ``None``, falls back
-            to :attr:`default_network` if set, otherwise
+            to :meth:`get_default_network` if set, otherwise
             :class:`DefaultNetworkInterface`.
         time_provider: Optional callable returning the current time as a float.
     """
