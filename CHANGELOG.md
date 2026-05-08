@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `CrossAppAccessFlow.start()` now accepts an optional `resource` parameter (RFC 8707), forwarded to the token exchange alongside `audience` and `scope`.
+- `OAuth2Error` now exposes an `additional_fields` mapping containing any non-standard keys returned in the error response body, so server-specific remediation hints are no longer discarded.
+- `OAuth2Error.from_response()` classmethod builds an error from a parsed OAuth2 error response body, mapping standard RFC 6749 fields to their attributes and collecting the rest into `additional_fields`.
 
 ## 0.2.0
 

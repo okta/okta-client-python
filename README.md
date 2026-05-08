@@ -652,6 +652,39 @@ flow = CrossAppAccessFlow(
 
 </details>
 
+## Error Handling
+
+Authentication flows raise `OAuth2Error` when the authorization server
+returns an error response, or when the SDK detects a protocol violation
+locally (e.g., a `state` mismatch on the authorization-code callback).
+
+```python
+from okta_client.authfoundation import OAuth2Error
+
+try:
+    token = await flow.start(...)
+except OAuth2Error as err:
+    print(err.error)              # RFC 6749 error code, e.g. "invalid_grant"
+    print(err.error_description)  # Human-readable description (if provided)
+    print(err.error_uri)          # Documentation link (if provided)
+    print(err.status_code)        # HTTP status (server responses only)
+    print(err.request_id)         # Request ID header (server responses only)
+```
+
+Servers sometimes return additional keys alongside the standard fields —
+for example `required_acr` and `max_age` on a step-up challenge, or
+Okta-specific `errorCauses` / `errorId` values. Any keys the SDK doesn't
+already model are preserved verbatim on `OAuth2Error.additional_fields`:
+
+```python
+except OAuth2Error as err:
+    if err.error == "interaction_required":
+        required_acr = err.additional_fields.get("required_acr")
+        # ...re-prompt the user at the requested assurance level
+```
+
+Locally-raised errors (no server payload) leave `additional_fields` empty.
+
 ## Listeners
 
 A common pattern within this SDK is the use of "Listeners" which enable developers to observe key events within the SDK's lifecycle. This permits you to implement some protocol within your application, and add your class instance as a listener to the client or flow you would like to observe.
