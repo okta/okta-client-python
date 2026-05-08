@@ -535,6 +535,20 @@ issuer — so the values match. They are kept separate because the token-exchang
 audience is a logical parameter of the request, while the target is a
 structural configuration that determines which server the second leg talks to.
 
+`start()` also accepts optional `resource` (RFC 8707 target resource URIs)
+and `scope` parameters, which are forwarded on the token-exchange request to
+further constrain the ID-JAG.:
+
+```python
+result = await flow.start(
+    token="<access-token>",
+    token_type="access_token",
+    audience="https://api.example.com",
+    resource=["https://api.example.com/v1/resource"],
+    scope=["openid", "custom_scope"],
+)
+```
+
 #### Path 1 — Automatic (key-provider auth)
 
 When the client uses `ClientAssertionAuthorization` with `assertion_claims` and
