@@ -10,8 +10,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 _STANDARD_FIELDS = frozenset({"error", "error_description", "error_uri"})
 
@@ -46,7 +47,7 @@ class OAuth2Error(Exception):
         *,
         status_code: int | None = None,
         request_id: str | None = None,
-    ) -> "OAuth2Error":
+    ) -> OAuth2Error:
         """Build an :class:`OAuth2Error` from a parsed OAuth2 error response body.
 
         Standard RFC 6749 keys (``error``, ``error_description``, ``error_uri``)
