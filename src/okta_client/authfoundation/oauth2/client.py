@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from okta_client.authfoundation.oauth2.requests.oauth_authorization_server import OAuthAuthorizationServerRequest
-from okta_client.authfoundation.utils import coerce_optional_sequence, coerce_optional_str
+from okta_client.authfoundation.utils import coerce_optional_sequence
 
 from ..coalesced_result import CoalescedResult
 from ..networking import APIClient, APIClientListener, APIResponse, NetworkInterface
@@ -413,10 +413,8 @@ def _raise_for_oauth2_error(
         except Exception:
             error = None
     if error is None and ("error" in result or response.status_code >= 400):
-        error = OAuth2Error(
-            error=str(result.get("error", "oauth2_error")),
-            error_description=coerce_optional_str(result.get("error_description")),
-            error_uri=coerce_optional_str(result.get("error_uri")),
+        error = OAuth2Error.from_response(
+            result,
             status_code=response.status_code,
             request_id=response.request_id,
         )

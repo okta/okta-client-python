@@ -13,8 +13,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
-from okta_client.authfoundation.utils import coerce_optional_str
-
 from ..networking import (
     APIContentType,
     APIParsingContext,
@@ -164,11 +162,6 @@ class OAuth2TokenRequestDefaults(APIRequestBodyMixin, OAuth2TokenRequest):
 
     def parse_error(self, data: Mapping[str, Any]) -> Exception | None:
         """Parse standard OAuth2 error fields when present."""
-        error = data.get("error")
-        if not error:
+        if not data.get("error"):
             return None
-        return OAuth2Error(
-            error=str(error),
-            error_description=coerce_optional_str(data.get("error_description")),
-            error_uri=coerce_optional_str(data.get("error_uri")),
-        )
+        return OAuth2Error.from_response(data)

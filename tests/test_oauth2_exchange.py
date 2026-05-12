@@ -227,3 +227,77 @@ def test_oauth2_exchange_oauth_error() -> None:
         assert error.error_description == "invalid credentials"
         return
     raise AssertionError("Expected OAuth2Error for invalid_grant")
+
+
+def test_oauth2_error_preserves_server_additional_fields() -> None:
+    """Non-standard fields in the token-endpoint error body are preserved on OAuth2Error."""
+    openid = OpenIdConfiguration.from_json(
+        {
+            "authorization_endpoint": "https://example.com/auth",
+            "token_endpoint": "https://example.com/token",
+            "jwks_uri": "https://example.com/keys",
+        }
+    )
+    token_body = json.dumps(
+        {
+            "error": "interaction_required",
+            "error_description": "step-up required",
+            "required_acr": "urn:okta:loa:2fa:any",
+            "max_age": 0,
+        }
+    ).encode("utf-8")
+    discovery_body = json.dumps(
+        {
+            "issuer": "https://example.com",
+            "authorization_endpoint": "https://example.com/auth",
+            "token_endpoint": "https://example.com/token",
+            "jwks_uri": "https://example.com/keys",
+        }
+    ).encode("utf-8")
+    jwks_body = json.dumps({"keys": []}).encode("utf-8")
+    network = DummyNetwork(
+        responses={
+            "https://example.com/.well-known/openid-configuration": RawResponse(
+                status_code=200, headers={}, body=discovery_body,
+            ),
+            "https://example.com/keys?client_id=client": RawResponse(
+                status_code=200, headers={}, body=jwks_body,
+            ),
+            "https://example.com/token": RawResponse(
+                status_code=400, headers={}, body=token_body,
+            ),
+        }
+    )
+    client = OAuth2Client(
+        configuration=OAuth2ClientConfiguration(
+            issuer="https://example.com",
+            scope=["openid"],
+            client_authorization=ClientIdAuthorization(id="client"),
+        ),
+        network=network,
+    )
+    request = TokenExchangeRequest(
+        _openid_configuration=openid,
+        _client_configuration=client.configuration,
+        username="user",
+        password="pass",
+    )
+
+    try:
+        asyncio.run(client.exchange(request))
+    except OAuth2Error as error:
+        assert error.error == "interaction_required"
+        assert error.additional_fields == {
+            "required_acr": "urn:okta:loa:2fa:any",
+            "max_age": 0,
+        }
+        # str() should remain unchanged (no extras appended).
+        assert str(error) == "interaction_required: step-up required"
+        return
+    raise AssertionError("Expected OAuth2Error for interaction_required")
+
+
+def test_oauth2_error_default_additional_fields_is_empty() -> None:
+    """Locally-raised OAuth2Errors have an empty additional_fields mapping."""
+    err = OAuth2Error(error="state_mismatch", error_description="bad state")
+    assert err.additional_fields == {}
