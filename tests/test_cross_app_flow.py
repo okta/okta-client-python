@@ -339,6 +339,36 @@ def test_start_with_scope() -> None:
     assert body["scope"] == ["openid custom_scope"]
 
 
+def test_start_with_audience_resource_and_scope_using_access_token() -> None:
+    """start() forwards audience, resource, and scope when exchanging an access token."""
+    network = DummyNetwork()
+    client = _build_client(network)
+    flow = CrossAppAccessFlow(
+        client=client,
+        target=CrossAppAccessTarget(issuer="https://example.com/oauth2/my-auth-server"),
+    )
+
+    asyncio.run(
+        flow.start(
+            token="my-access-token",
+            token_type="access_token",
+            audience="https://api.example.com",
+            resource=["https://api.example.com/v1/resource"],
+            scope=["openid", "custom_scope"],
+        )
+    )
+
+    body = network.last_exchange_body
+    assert body is not None
+    assert body["grant_type"] == ["urn:ietf:params:oauth:grant-type:token-exchange"]
+    assert body["subject_token"] == ["my-access-token"]
+    assert body["subject_token_type"] == ["urn:ietf:params:oauth:token-type:access_token"]
+    assert body["requested_token_type"] == ["urn:ietf:params:oauth:token-type:id-jag"]
+    assert body["audience"] == ["https://api.example.com"]
+    assert body["resource"] == ["https://api.example.com/v1/resource"]
+    assert body["scope"] == ["openid custom_scope"]
+
+
 def test_start_stores_id_jag_in_context() -> None:
     """start() stores the ID-JAG token and exchange result in the flow context."""
     network = DummyNetwork()

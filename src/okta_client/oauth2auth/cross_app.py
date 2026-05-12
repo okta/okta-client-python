@@ -289,6 +289,7 @@ class CrossAppAccessFlow(BaseAuthenticationFlow[CrossAppAccessContext]):
         *,
         token: str,
         audience: str | None = None,
+        resource: Sequence[str] | None = None,
         scope: Sequence[str] | None = None,
         token_type: Literal["id_token", "access_token"] = "id_token",
         context: CrossAppAccessContext | None = None,
@@ -304,6 +305,8 @@ class CrossAppAccessFlow(BaseAuthenticationFlow[CrossAppAccessContext]):
             audience: Target audience for the ID-JAG.  Defaults to
                 :attr:`target.issuer <CrossAppAccessTarget.issuer>`
                 when not supplied.
+            resource: Optional target resource URIs to include on the
+                token exchange (RFC 8707).
             scope: Optional scopes to request on the ID-JAG.
             token_type: Whether *token* is an ``"id_token"`` (default) or
                 ``"access_token"``.
@@ -341,6 +344,7 @@ class CrossAppAccessFlow(BaseAuthenticationFlow[CrossAppAccessContext]):
                     subject_token=token,
                     subject_token_type=subject_token_type,
                     audience=audience,
+                    resource=resource,
                     scope=scope,
                     requested_token_type=TokenType.ID_JAG,
                 )
