@@ -25,8 +25,6 @@ from okta_client.authfoundation import (
 )
 from okta_client.authfoundation.authentication import StandardAuthenticationContext
 from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
-from okta_client.authfoundation.oauth2.request_protocols import IDTokenValidatorContext
-from okta_client.authfoundation.oauth2.utils import NullIDTokenValidatorContext
 
 
 class ResourceOwnerFlow(BaseAuthenticationFlow[StandardAuthenticationContext]):
@@ -105,9 +103,9 @@ class ResourceOwnerTokenRequest(OAuth2TokenRequestDefaults):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
+    def token_validator_context(self) -> StandardAuthenticationContext:
         """Return the validation context for the token response."""
-        return NullIDTokenValidatorContext()
+        return self.context
 
     @property
     def query(self) -> Mapping[str, RequestValue] | None:

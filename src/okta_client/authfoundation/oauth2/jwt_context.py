@@ -11,9 +11,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from .requests import IDTokenValidatorContext
+if TYPE_CHECKING:
+    from ..authentication import AuthenticationContext
 
 
 @runtime_checkable
@@ -41,11 +42,11 @@ class JWTValidationContext(JWTUsageContext):
     def from_contexts(
         cls,
         usage: JWTUsageContext,
-        validator_context: IDTokenValidatorContext | None,
+        validator_context: AuthenticationContext | None,
     ) -> JWTValidationContext:
         return cls(
             issuer=usage.issuer,
-            audience=usage.audience,
+            audience=validator_context.audience if validator_context else usage.audience,
             nonce=validator_context.nonce if validator_context else None,
             max_age=validator_context.max_age if validator_context else None,
             leeway=usage.leeway,

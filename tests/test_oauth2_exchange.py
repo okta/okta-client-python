@@ -25,9 +25,9 @@ from okta_client.authfoundation import (
 )
 from okta_client.authfoundation.oauth2.client_authorization import ClientIdAuthorization
 from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
+from okta_client.authfoundation.authentication import StandardAuthenticationContext
 from okta_client.authfoundation.oauth2.parameters import OAuth2APIRequestCategory
 from okta_client.authfoundation.oauth2.request_protocols import (
-    IDTokenValidatorContext,
     OAuth2TokenRequestDefaults,
 )
 
@@ -43,10 +43,6 @@ class DummyNetwork(NetworkInterface):
         if response is None:
             raise AssertionError(f"Unexpected request URL: {request.url}")
         return response
-
-
-class NullValidatorContext(IDTokenValidatorContext):
-    pass
 
 
 @dataclass
@@ -69,8 +65,8 @@ class TokenExchangeRequest(OAuth2TokenRequestDefaults, APIRequestBody):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        return NullValidatorContext()
+    def token_validator_context(self) -> StandardAuthenticationContext:
+        return StandardAuthenticationContext()
 
     @property
     def query(self) -> Mapping[str, RequestValue] | None:

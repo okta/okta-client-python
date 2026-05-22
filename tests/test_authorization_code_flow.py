@@ -296,13 +296,73 @@ class TestAuthorizationCodeContext:
         with pytest.raises(AttributeError):
             ctx.state = "new_state"  # type: ignore[misc]
 
-    def test_implements_id_token_validator_context(self) -> None:
-        from okta_client.authfoundation.oauth2.request_protocols import IDTokenValidatorContext
+    def test_implements_authentication_context(self) -> None:
+        from okta_client.authfoundation.authentication import AuthenticationContext
 
         ctx = AuthorizationCodeContext(nonce="n", max_age=42.0)
-        assert isinstance(ctx, IDTokenValidatorContext)
+        assert isinstance(ctx, AuthenticationContext)
         assert ctx.nonce == "n"
         assert ctx.max_age == 42.0
+
+    def test_resource_string_in_token_parameters(self) -> None:
+        from okta_client.authfoundation import OAuth2APIRequestCategory
+
+        ctx = AuthorizationCodeContext(resource="https://api.example.com")
+        params = ctx.parameters(OAuth2APIRequestCategory.TOKEN)
+        assert params is not None
+        assert params["resource"] == "https://api.example.com"
+
+    def test_resource_list_in_token_parameters(self) -> None:
+        from okta_client.authfoundation import OAuth2APIRequestCategory
+
+        ctx = AuthorizationCodeContext(
+            resource=["https://api.example.com", "https://other.example.com"],
+        )
+        params = ctx.parameters(OAuth2APIRequestCategory.TOKEN)
+        assert params is not None
+        assert params["resource"] == "https://api.example.com https://other.example.com"
+
+    def test_audience_in_token_parameters(self) -> None:
+        from okta_client.authfoundation import OAuth2APIRequestCategory
+
+        ctx = AuthorizationCodeContext(audience="api://default")
+        params = ctx.parameters(OAuth2APIRequestCategory.TOKEN)
+        assert params is not None
+        assert params["audience"] == "api://default"
+
+    def test_resource_not_in_authorization_parameters(self) -> None:
+        from okta_client.authfoundation import OAuth2APIRequestCategory
+
+        ctx = AuthorizationCodeContext(
+            resource="https://api.example.com",
+            audience="api://default",
+        )
+        params = ctx.parameters(OAuth2APIRequestCategory.AUTHORIZATION)
+        assert params is not None
+        assert "resource" not in params
+        assert "audience" not in params
+
+    def test_resource_in_token_request_body(self) -> None:
+        from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
+        from okta_client.oauth2auth.authorization_code import AuthorizationCodeTokenRequest
+
+        oidc = OpenIdConfiguration.from_json(_OPENID_CONFIG)
+        config = OAuth2ClientConfiguration(
+            issuer="https://example.com",
+            scope=["openid"],
+            client_authorization=ClientIdAuthorization(id="cid"),
+            redirect_uri="https://example.com/callback",
+        )
+        ctx = AuthorizationCodeContext(resource="https://api.example.com")
+        request = AuthorizationCodeTokenRequest(
+            _openid_configuration=oidc,
+            _client_configuration=config,
+            additional_parameters=None,
+            context=ctx,
+            authorization_code="code123",
+        )
+        assert request.body_parameters["resource"] == "https://api.example.com"
+        assert request.body_parameters["grant_type"] == "authorization_code"
 
 
 # ---------------------------------------------------------------------------

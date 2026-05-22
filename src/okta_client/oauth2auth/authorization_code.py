@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
@@ -40,7 +40,6 @@ from okta_client.authfoundation import (
 from okta_client.authfoundation.authentication import generate_pkce
 from okta_client.authfoundation.oauth2.errors import OAuth2Error
 from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
-from okta_client.authfoundation.oauth2.request_protocols import IDTokenValidatorContext
 from okta_client.authfoundation.utils import serialize_parameters
 
 from .utils import parse_redirect_uri
@@ -65,11 +64,12 @@ class Prompt(str, Enum):
 
 
 @dataclass(frozen=True)
-class AuthorizationCodeContext(Codable, AuthenticationContext, IDTokenValidatorContext):
+class AuthorizationCodeContext(Codable, AuthenticationContext):
     """Per-session context for the Authorization Code flow.
 
-    Implements both :class:`AuthenticationContext` (for parameter merging) and
-    :class:`IDTokenValidatorContext` (for ID-token ``nonce`` / ``max_age`` validation).
+    Implements :class:`AuthenticationContext` for parameter merging and
+    ID-token validation (``nonce``, ``max_age``, ``audience`` are inherited
+    from the base protocol).
 
     The context is **immutable** (frozen dataclass).  The flow updates it
     internally via :func:`dataclasses.replace` and
@@ -89,6 +89,9 @@ class AuthorizationCodeContext(Codable, AuthenticationContext, IDTokenValidatorC
     ui_locales: list[str] | None = None
     claims_locales: list[str] | None = None
     pushed_authorization_request_enabled: bool = True
+
+    audience: str | None = None  # type: ignore[assignment]
+    resource: str | Sequence[str] | None = None  # type: ignore[assignment]
 
     authentication_url: str | None = None
 
@@ -146,6 +149,13 @@ class AuthorizationCodeContext(Codable, AuthenticationContext, IDTokenValidatorC
         elif category == OAuth2APIRequestCategory.TOKEN:
             if self.pkce:
                 result["code_verifier"] = self.pkce.code_verifier
+            if self.audience:
+                result["audience"] = self.audience
+            if self.resource:
+                if isinstance(self.resource, str):
+                    result["resource"] = self.resource
+                else:
+                    result["resource"] = " ".join(self.resource)
         return result or None
 
     # -- Codable --------------------------------------------------------------
@@ -178,6 +188,8 @@ class AuthorizationCodeContext(Codable, AuthenticationContext, IDTokenValidatorC
             ui_locales=data.get("ui_locales"),
             claims_locales=data.get("claims_locales"),
             pushed_authorization_request_enabled=data.get("pushed_authorization_request_enabled", True),
+            audience=data.get("audience"),
+            resource=data.get("resource"),
             authentication_url=data.get("authentication_url"),
             _additional_parameters=data.get("_additional_parameters"),
         )
@@ -321,8 +333,8 @@ class AuthorizationCodeTokenRequest(OAuth2TokenRequestDefaults):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        """Return the context itself — provides ``nonce`` and ``max_age`` for ID token validation."""
+    def token_validator_context(self) -> AuthorizationCodeContext:
+        """Return the context itself — provides ``nonce``, ``max_age``, and ``audience`` for ID token validation."""
         return self.context
 
     @property
