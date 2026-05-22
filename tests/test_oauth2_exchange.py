@@ -23,9 +23,9 @@ from okta_client.authfoundation import (
     RawResponse,
     RequestValue,
 )
+from okta_client.authfoundation.authentication import StandardAuthenticationContext
 from okta_client.authfoundation.oauth2.client_authorization import ClientIdAuthorization
 from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
-from okta_client.authfoundation.authentication import StandardAuthenticationContext
 from okta_client.authfoundation.oauth2.parameters import OAuth2APIRequestCategory
 from okta_client.authfoundation.oauth2.request_protocols import (
     OAuth2TokenRequestDefaults,
