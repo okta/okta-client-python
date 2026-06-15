@@ -11,7 +11,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..authentication import AuthenticationContext
 
 from ..networking import (
     APIContentType,
@@ -32,7 +35,13 @@ from .parameters import OAuth2APIRequestCategory
 
 @runtime_checkable
 class IDTokenValidatorContext(Protocol):
-    """Context hints for ID token validation."""
+    """Context hints for ID token validation.
+
+    .. deprecated::
+        Subsumed by :class:`AuthenticationContext`, which now provides
+        ``nonce``, ``max_age``, and ``audience`` directly. Kept for
+        backward compatibility.
+    """
 
     @property
     def nonce(self) -> str | None:
@@ -116,7 +125,7 @@ class OAuth2TokenRequest(OAuth2APIRequest, APIRequest[Mapping[str, Any]], APIReq
         ...
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
+    def token_validator_context(self) -> AuthenticationContext:
         """Validation context used when verifying ID tokens."""
         ...
 

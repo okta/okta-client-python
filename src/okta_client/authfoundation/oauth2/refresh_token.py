@@ -23,8 +23,7 @@ from .config import OAuth2ClientConfiguration
 from .errors import OAuth2Error
 from .models import OpenIdConfiguration
 from .parameters import OAuth2APIRequestCategory
-from .request_protocols import IDTokenValidatorContext, OAuth2TokenRequestDefaults
-from .utils import NullIDTokenValidatorContext
+from .request_protocols import OAuth2TokenRequestDefaults
 
 _REFRESH_TOKEN_GRANT_TYPE = "refresh_token"
 
@@ -115,8 +114,8 @@ class RefreshTokenRequest(OAuth2TokenRequestDefaults, APIRequestBody):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        return NullIDTokenValidatorContext()
+    def token_validator_context(self) -> StandardAuthenticationContext:
+        return self.context
 
     @property
     def query(self) -> Mapping[str, RequestValue] | None:

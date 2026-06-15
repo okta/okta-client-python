@@ -29,8 +29,6 @@ from okta_client.authfoundation import (
 )
 from okta_client.authfoundation.networking import APIAuthorization, APIParsingContext, RawResponse
 from okta_client.authfoundation.oauth2.models import OAuthAuthorizationServer
-from okta_client.authfoundation.oauth2.requests import IDTokenValidatorContext
-from okta_client.authfoundation.oauth2.utils import NullIDTokenValidatorContext
 from okta_client.authfoundation.utils import coerce_optional_sequence, coerce_optional_str
 
 _TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -84,6 +82,10 @@ class TokenExchangeContext(AuthenticationContext):
     requested_token_type: Union[TokenType, str] | None = None
     _additional_parameters: Mapping[str, RequestValue] | None = None
     _persist_values: Mapping[str, str] | None = None
+    _nonce: str | None = None
+    _max_age: float | None = None
+    _audience: str | None = None
+    _resource: str | Sequence[str] | None = None
 
     @property
     def acr_values(self) -> list[str] | None:
@@ -96,6 +98,22 @@ class TokenExchangeContext(AuthenticationContext):
     @property
     def additional_parameters(self) -> Mapping[str, RequestValue] | None:
         return self._additional_parameters
+
+    @property
+    def nonce(self) -> str | None:
+        return self._nonce
+
+    @property
+    def max_age(self) -> float | None:
+        return self._max_age
+
+    @property
+    def audience(self) -> str | None:
+        return self._audience
+
+    @property
+    def resource(self) -> str | Sequence[str] | None:
+        return self._resource
 
     def parameters(self, category: OAuth2APIRequestCategory) -> Mapping[str, RequestValue] | None:
         if category != OAuth2APIRequestCategory.TOKEN:
@@ -318,8 +336,8 @@ class TokenExchangeTokenRequest(OAuth2TokenRequestDefaults, APIRequestBody):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        return NullIDTokenValidatorContext()
+    def token_validator_context(self) -> TokenExchangeContext:
+        return self.context
 
     @property
     def query(self) -> Mapping[str, RequestValue] | None:

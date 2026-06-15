@@ -31,8 +31,6 @@ from okta_client.authfoundation.oauth2.jwt_bearer_claims import JWTBearerClaims
 from okta_client.authfoundation.oauth2.jwt_bearer_utils import resolve_jwt_bearer_assertion
 from okta_client.authfoundation.oauth2.jwt_token import JWTType
 from okta_client.authfoundation.oauth2.models import OAuthAuthorizationServer
-from okta_client.authfoundation.oauth2.request_protocols import IDTokenValidatorContext
-from okta_client.authfoundation.oauth2.utils import NullIDTokenValidatorContext
 
 _JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
@@ -143,8 +141,8 @@ class JWTBearerTokenRequest(OAuth2TokenRequestDefaults):
         return OAuth2APIRequestCategory.TOKEN
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        return NullIDTokenValidatorContext()
+    def token_validator_context(self) -> StandardAuthenticationContext:
+        return self.context
 
     @property
     def query(self) -> Mapping[str, RequestValue] | None:

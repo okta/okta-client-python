@@ -16,8 +16,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from okta_client.authfoundation import HTTPRequest, NetworkInterface, OAuth2Client, OAuth2ClientConfiguration, RawResponse
+from okta_client.authfoundation.authentication import StandardAuthenticationContext
 from okta_client.authfoundation.networking import APIContentType, APIRequestMethod, DefaultNetworkInterface, RequestValue
-from okta_client.authfoundation.oauth2 import NullIDTokenValidatorContext
 from okta_client.authfoundation.oauth2.client_authorization import (
     ClientAssertionAuthorization,
     ClientIdAuthorization,
@@ -25,7 +25,7 @@ from okta_client.authfoundation.oauth2.client_authorization import (
 )
 from okta_client.authfoundation.oauth2.models import OAuthAuthorizationServer, OpenIdConfiguration
 from okta_client.authfoundation.oauth2.parameters import OAuth2APIRequestCategory
-from okta_client.authfoundation.oauth2.request_protocols import IDTokenValidatorContext, OAuth2TokenRequest
+from okta_client.authfoundation.oauth2.request_protocols import OAuth2TokenRequest
 from okta_client.authfoundation.token import Token, TokenContext
 
 
@@ -245,8 +245,8 @@ class JwtContextRequest(OAuth2TokenRequest):
         return self._client_configuration
 
     @property
-    def token_validator_context(self) -> IDTokenValidatorContext:
-        return NullIDTokenValidatorContext()
+    def token_validator_context(self) -> StandardAuthenticationContext:
+        return StandardAuthenticationContext()
 
     @property
     def category(self) -> OAuth2APIRequestCategory:

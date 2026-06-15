@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Generic, Protocol, TypeVar, cast, runtime_checkable
@@ -74,6 +74,26 @@ class AuthenticationContext(Protocol):
         """Additional parameters for the session."""
         ...
 
+    @property
+    def nonce(self) -> str | None:
+        """Nonce value for ID token binding (OIDC Core §3.1.2.1)."""
+        ...
+
+    @property
+    def max_age(self) -> float | None:
+        """Maximum authentication age in seconds (OIDC Core §3.1.2.1)."""
+        ...
+
+    @property
+    def audience(self) -> str | None:
+        """Intended audience for the requested token (RFC 8693 §2.1)."""
+        ...
+
+    @property
+    def resource(self) -> str | Sequence[str] | None:
+        """Target resource indicator(s) (RFC 8707)."""
+        ...
+
     def parameters(self, category: OAuth2APIRequestCategory) -> Mapping[str, RequestValue] | None:
         """Return OAuth2 parameters to include for the given request category."""
         ...
@@ -106,6 +126,10 @@ class StandardAuthenticationContext(AuthenticationContext):
     _acr_values: list[str] | None = None
     _persist_values: Mapping[str, str] | None = None
     _additional_parameters: Mapping[str, RequestValue] | None = None
+    _nonce: str | None = None
+    _max_age: float | None = None
+    _audience: str | None = None
+    _resource: str | Sequence[str] | None = None
 
     @property
     def acr_values(self) -> list[str] | None:
@@ -122,11 +146,39 @@ class StandardAuthenticationContext(AuthenticationContext):
         """Additional parameters for the session."""
         return self._additional_parameters
 
+    @property
+    def nonce(self) -> str | None:
+        """Nonce value for ID token binding."""
+        return self._nonce
+
+    @property
+    def max_age(self) -> float | None:
+        """Maximum authentication age in seconds."""
+        return self._max_age
+
+    @property
+    def audience(self) -> str | None:
+        """Intended audience for the requested token."""
+        return self._audience
+
+    @property
+    def resource(self) -> str | Sequence[str] | None:
+        """Target resource indicator(s)."""
+        return self._resource
+
     def parameters(self, category: OAuth2APIRequestCategory) -> Mapping[str, RequestValue] | None:
         """Return OAuth2 parameters contributed by this context."""
         result: dict[str, RequestValue] = dict(self._additional_parameters or {})
         if category == OAuth2APIRequestCategory.AUTHORIZATION and self._acr_values:
             result["acr_values"] = " ".join(self._acr_values)
+        if category == OAuth2APIRequestCategory.TOKEN:
+            if self._audience:
+                result["audience"] = self._audience
+            if self._resource:
+                if isinstance(self._resource, str):
+                    result["resource"] = self._resource
+                else:
+                    result["resource"] = " ".join(self._resource)
         return result or None
 
 
