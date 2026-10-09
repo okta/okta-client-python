@@ -39,7 +39,7 @@ def test_client_secret_authorization_parameters() -> None:
 
     assert authorization.parameters(OAuth2APIRequestCategory.CONFIGURATION) is None
     assert authorization.parameters(OAuth2APIRequestCategory.TOKEN) == {"client_id": "client", "client_secret": "secret"}
-    
+
     # The secret is a back-channel credential (RFC 6749 §2.3.1) and must not be
     # sent in the front-channel authorization request.
     assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) == {"client_id": "client"}
