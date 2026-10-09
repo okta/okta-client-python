@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Security
+
+- `ClientSecretAuthorization` and `ClientAssertionAuthorization` no longer contribute `client_secret`, `client_assertion`, or `client_assertion_type` to `AUTHORIZATION`-category parameters. Previously, `AuthorizationCodeFlow.start()` embedded the client secret (or assertion) as a query parameter in the browser-visible authorize URL whenever Pushed Authorization Requests were unavailable, disabled, or failed, exposing it to browser history, server logs, and `Referer` headers (RFC 6749 §2.3.1). Credentials are still sent on the back channel: in the token request and in the PAR request body (RFC 9126 §2).
+- `AuthorizationCodeFlow` additionally strips `client_secret`, `client_assertion`, and `client_assertion_type` from the authorize URL query string regardless of which parameter source supplied them.
+- The `authorization_code` sample now writes its saved flow context file with owner-only (`0600`) permissions, since it contains the PKCE code verifier.
+
+### Changed
+
+- `AuthorizationCodeFlow` logs a warning on the `okta_client.oauth2auth.authorization_code` logger when a Pushed Authorization Request fails and the flow falls back to a standard authorize URL, instead of falling back silently.
+
 ## 0.3.0
 
 ### Added

@@ -191,6 +191,11 @@ authorization server:
 When using `from_file` or `from_mapping`, the strategy is inferred automatically
 from the presence of `client_id`, `client_secret`, or `client_assertion` keys.
 
+Client credentials (`client_secret` or `client_assertion`) are only ever sent on
+the back channel: in token requests and in Pushed Authorization Requests. The
+browser-visible authorize URL built by `AuthorizationCodeFlow` carries only the
+`client_id`.
+
 ## Using Authentication Flows
 
 Every authentication flow follows the same two-method pattern defined by the
