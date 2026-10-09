@@ -68,6 +68,10 @@ class ClientSecretAuthorization(ClientIdAuthorization):
     def parameters(self, category: OAuth2APIRequestCategory) -> Mapping[str, RequestValue] | None:
         if category == OAuth2APIRequestCategory.CONFIGURATION:
             return None
+        if category == OAuth2APIRequestCategory.AUTHORIZATION:
+            # The client secret is a back-channel credential (RFC 6749 §2.3.1) and
+            # must never be placed in the browser-visible authorization request.
+            return {"client_id": self.id}
         return {
             "client_id": self.id,
             "client_secret": self.secret,
@@ -123,6 +127,11 @@ class ClientAssertionAuthorization(ClientAuthorization):
     def parameters(self, category: OAuth2APIRequestCategory) -> Mapping[str, RequestValue] | None:
         if category == OAuth2APIRequestCategory.CONFIGURATION:
             return None
+        if category == OAuth2APIRequestCategory.AUTHORIZATION:
+            # A client assertion authenticates the client on the back channel only
+            # (RFC 7523 §2.2); the authorization request carries just the client ID.
+            client_id = self.client_id
+            return {"client_id": client_id} if client_id else None
         assertion = self._resolve_assertion()
         assertion_type = (
             self.assertion_type.value

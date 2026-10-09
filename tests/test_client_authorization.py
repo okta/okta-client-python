@@ -39,7 +39,11 @@ def test_client_secret_authorization_parameters() -> None:
 
     assert authorization.parameters(OAuth2APIRequestCategory.CONFIGURATION) is None
     assert authorization.parameters(OAuth2APIRequestCategory.TOKEN) == {"client_id": "client", "client_secret": "secret"}
-    assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) == {"client_id": "client", "client_secret": "secret"}
+    
+    # The secret is a back-channel credential (RFC 6749 §2.3.1) and must not be
+    # sent in the front-channel authorization request.
+    assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) == {"client_id": "client"}
+    assert authorization.parameters(OAuth2APIRequestCategory.OTHER) == {"client_id": "client", "client_secret": "secret"}
     assert authorization.client_id == "client"
 
 
@@ -51,6 +55,44 @@ def test_jwt_bearer_authorization_parameters() -> None:
     assert params is not None
     assert params["client_assertion"] == "jwt"
     assert params["client_assertion_type"] == "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+    # The assertion is a back-channel credential; with no resolvable client ID the
+    # front-channel authorization request gets nothing from this strategy.
+    assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) is None
+
+
+def test_jwt_bearer_authorization_parameters_front_channel_carries_only_client_id() -> None:
+    assertion = jwt.encode({"iss": "client"}, "super-long-and-secure-secret-key", algorithm="HS256")
+    authorization = ClientAssertionAuthorization(assertion=assertion)
+
+    assert authorization.client_id == "client"
+    assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) == {"client_id": "client"}
+    token_params = authorization.parameters(OAuth2APIRequestCategory.TOKEN)
+    assert token_params is not None
+    assert token_params["client_assertion"] == assertion
+
+
+def test_configuration_authorization_parameters_exclude_client_credentials() -> None:
+    secret_configuration = OAuth2ClientConfiguration(
+        issuer="https://example.com",
+        scope=["openid"],
+        client_authorization=ClientSecretAuthorization(id="client", secret="secret"),
+        redirect_uri="https://example.com/callback",
+    )
+    params = secret_configuration.parameters(OAuth2APIRequestCategory.AUTHORIZATION)
+    assert params == {"scope": "openid", "redirect_uri": "https://example.com/callback", "client_id": "client"}
+    token_params = secret_configuration.parameters(OAuth2APIRequestCategory.TOKEN)
+    assert token_params is not None
+    assert token_params["client_secret"] == "secret"
+
+    assertion_configuration = OAuth2ClientConfiguration(
+        issuer="https://example.com",
+        scope=["openid"],
+        client_authorization=ClientAssertionAuthorization(assertion="jwt"),
+    )
+    params = assertion_configuration.parameters(OAuth2APIRequestCategory.AUTHORIZATION)
+    assert params is not None
+    assert "client_assertion" not in params
+    assert "client_assertion_type" not in params
 
 
 def test_jwt_bearer_authorization_claims_with_default_provider() -> None:
@@ -73,6 +115,9 @@ def test_jwt_bearer_authorization_claims_with_default_provider() -> None:
         decoded = jwt.decode(assertion, secret, algorithms=["HS256"], options={"verify_aud": False})
         assert decoded["iss"] == "client"
         assert authorization.client_id == "client"
+
+        # Front-channel authorization requests carry only the client ID, never the assertion.
+        assert authorization.parameters(OAuth2APIRequestCategory.AUTHORIZATION) == {"client_id": "client"}
     finally:
         set_key_provider(previous)
 

@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -43,6 +44,14 @@ from okta_client.authfoundation.oauth2.models import OpenIdConfiguration
 from okta_client.authfoundation.utils import serialize_parameters
 
 from .utils import parse_redirect_uri
+
+logger = logging.getLogger(__name__)
+
+# Client credentials are only ever sent on the back channel (RFC 6749 §2.3.1,
+# RFC 7523 §2.2).  They are removed from the browser-visible authorize URL as a
+# safeguard, regardless of which ``ClientAuthorization`` or parameter source
+# supplied them.
+_BACK_CHANNEL_ONLY_PARAMETERS = frozenset({"client_secret", "client_assertion", "client_assertion_type"})
 
 # ---------------------------------------------------------------------------
 # Prompt Enum
@@ -289,7 +298,14 @@ class PushedAuthorizationRequest(BaseAPIRequest, APIRequestBodyMixin):
 
     @property
     def body_parameters(self) -> Mapping[str, RequestValue]:
-        """Merge parameters: flow additional → config(AUTHORIZATION) → context(AUTHORIZATION)."""
+        """Merge parameters: flow additional → config(AUTHORIZATION) → context(AUTHORIZATION) → client credentials.
+
+        PAR is a back-channel request, so the client authenticates to the PAR
+        endpoint the same way it does at the token endpoint (RFC 9126 §2).  The
+        credentials are therefore taken from the TOKEN category of the configured
+        ``ClientAuthorization``; the AUTHORIZATION category deliberately omits
+        them because it also feeds the browser-visible authorize URL.
+        """
         parameters: dict[str, RequestValue] = {}
         if self.additional_parameters:
             parameters.update(self.additional_parameters)
@@ -299,6 +315,11 @@ class PushedAuthorizationRequest(BaseAPIRequest, APIRequestBodyMixin):
         context_parameters = self.context.parameters(OAuth2APIRequestCategory.AUTHORIZATION)
         if context_parameters:
             parameters.update(context_parameters)
+        client_authorization = self._client_configuration.client_authorization
+        if client_authorization is not None:
+            credential_parameters = client_authorization.parameters(OAuth2APIRequestCategory.TOKEN)
+            if credential_parameters:
+                parameters.update(credential_parameters)
         return parameters
 
 
@@ -535,10 +556,19 @@ class AuthorizationCodeFlow(BaseAuthenticationFlow[AuthorizationCodeContext]):
             )
             response = await asyncio.to_thread(self.client.send, request)
             result = response.result
-            if not isinstance(result, Mapping):
-                return None
-            request_uri = result.get("request_uri")
+            request_uri = result.get("request_uri") if isinstance(result, Mapping) else None
             if not request_uri:
+                detail = "no request_uri"
+                if isinstance(result, Mapping) and result.get("error"):
+                    detail = f"error {result.get('error')!s}"
+                    if result.get("error_description"):
+                        detail = f"{detail}: {result.get('error_description')!s}"
+                logger.warning(
+                    "Pushed authorization request to %s returned %s (HTTP %s); falling back to a standard authorize URL.",
+                    par_endpoint,
+                    detail,
+                    response.status_code,
+                )
                 return None
 
             # Build minimal authorize URL: client_id + request_uri only
@@ -555,8 +585,15 @@ class AuthorizationCodeFlow(BaseAuthenticationFlow[AuthorizationCodeContext]):
         except OAuth2Error:
             # Configuration errors should surface clearly to the caller.
             raise
-        except Exception:
-            # PAR failure is non-fatal; fall back to full authorize URL
+        except Exception as error:
+            # PAR failure is non-fatal; fall back to the full authorize URL, but
+            # make the fallback visible so it is not mistaken for PAR succeeding.
+            logger.warning(
+                "Pushed authorization request to %s failed (%s: %s); falling back to a standard authorize URL.",
+                par_endpoint,
+                type(error).__name__,
+                error,
+            )
             return None
 
     def _build_authorization_params(
@@ -582,6 +619,11 @@ class AuthorizationCodeFlow(BaseAuthenticationFlow[AuthorizationCodeContext]):
                 "client_id is required for authorization requests and could not be resolved"
             )
         parameters["client_id"] = client_id
+
+        # Never place client credentials in the front-channel URL, even if a
+        # custom ``ClientAuthorization`` or ``additional_parameters`` supplied them.
+        for key in _BACK_CHANNEL_ONLY_PARAMETERS:
+            parameters.pop(key, None)
         return serialize_parameters(parameters)
 
 
