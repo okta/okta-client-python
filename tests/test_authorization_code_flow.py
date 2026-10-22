@@ -12,6 +12,7 @@
 
 import asyncio
 import json
+import logging
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 import pytest
@@ -25,7 +26,11 @@ from okta_client.authfoundation import (
     RawResponse,
     generate_pkce,
 )
-from okta_client.authfoundation.oauth2.client_authorization import ClientIdAuthorization
+from okta_client.authfoundation.oauth2.client_authorization import (
+    ClientAssertionAuthorization,
+    ClientIdAuthorization,
+    ClientSecretAuthorization,
+)
 from okta_client.oauth2auth import (
     AuthorizationCodeContext,
     AuthorizationCodeFlow,
@@ -80,7 +85,9 @@ class DummyNetwork(NetworkInterface):
         url = request.url
         path = urlsplit(url).path
 
-        self.sent_requests.append({"url": url, "method": getattr(request, "http_method", None)})
+        self.sent_requests.append(
+            {"url": url, "method": getattr(request, "http_method", None), "body": getattr(request, "body", None)}
+        )
 
         if path.endswith(".well-known/openid-configuration"):
             return RawResponse(
@@ -796,3 +803,197 @@ class TestFlowLifecycle:
         flow.reset()
         assert flow.context is None
         assert flow.state == AuthenticationState.IDLE
+
+
+# ---------------------------------------------------------------------------
+# Client credentials must stay on the back channel (OKTA-1275285)
+# ---------------------------------------------------------------------------
+
+_SECRET = "CANARY_SECRET_abc123"
+_PAR_LOGGER = "okta_client.oauth2auth.authorization_code"
+
+
+class _RaisingPARNetwork(DummyNetwork):
+    """DummyNetwork whose PAR endpoint fails with a transport error."""
+
+    def send(self, request) -> RawResponse:
+        if urlsplit(request.url).path.endswith("/par"):
+            raise ConnectionError("simulated network failure")
+        return super().send(request)
+
+
+def _build_secret_client(network: NetworkInterface) -> OAuth2Client:
+    config = OAuth2ClientConfiguration(
+        issuer="https://example.com",
+        scope=["openid", "profile"],
+        client_authorization=ClientSecretAuthorization(id="test_client", secret=_SECRET),
+        redirect_uri="https://example.com/callback",
+    )
+    return OAuth2Client(configuration=config, network=network)
+
+
+def _sent_body(network: DummyNetwork, path_suffix: str) -> dict[str, list[str]]:
+    for sent in network.sent_requests:
+        if urlsplit(sent["url"]).path.endswith(path_suffix):
+            body = sent["body"]
+            assert body is not None
+            return parse_qs(body.decode("utf-8"))
+    raise AssertionError(f"no request sent to *{path_suffix}")
+
+
+def _assert_secret_absent_from_front_channel(flow: AuthorizationCodeFlow, url: str) -> None:
+    qs = parse_qs(urlsplit(url).query)
+    assert "client_secret" not in qs
+    assert _SECRET not in url
+    assert qs["client_id"] == ["test_client"]
+    assert flow.context is not None
+    assert flow.context.authentication_url == url
+    # The serialized context (persisted to disk by callers such as the sample) must not leak it either.
+    assert _SECRET not in json.dumps(flow.context.to_dict())
+
+
+class TestClientSecretStaysOnBackChannel:
+    def test_secret_not_in_authorize_url_when_server_lacks_par(self) -> None:
+        """Classic Engine style server: no PAR endpoint advertised, full authorize URL built."""
+        flow = AuthorizationCodeFlow(client=_build_secret_client(DummyNetwork()))
+
+        url = asyncio.run(flow.start())
+
+        _assert_secret_absent_from_front_channel(flow, url)
+        assert "code_challenge" in parse_qs(urlsplit(url).query)
+
+    def test_secret_not_in_authorize_url_when_par_disabled_by_context(self) -> None:
+        network = DummyNetwork(openid_config=_OPENID_CONFIG_WITH_PAR)
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+        ctx = AuthorizationCodeContext(pushed_authorization_request_enabled=False)
+
+        url = asyncio.run(flow.start(context=ctx))
+
+        _assert_secret_absent_from_front_channel(flow, url)
+        assert not any(urlsplit(s["url"]).path.endswith("/par") for s in network.sent_requests)
+
+    def test_secret_not_in_authorize_url_when_par_returns_400(self, caplog: pytest.LogCaptureFixture) -> None:
+        network = DummyNetwork(
+            openid_config=_OPENID_CONFIG_WITH_PAR,
+            par_body={"error": "invalid_request"},
+            par_status=400,
+        )
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+
+        with caplog.at_level(logging.WARNING, logger=_PAR_LOGGER):
+            url = asyncio.run(flow.start())
+
+        _assert_secret_absent_from_front_channel(flow, url)
+        assert "request_uri" not in parse_qs(urlsplit(url).query)
+        assert any("falling back" in record.getMessage() for record in caplog.records)
+
+    def test_secret_not_in_authorize_url_when_par_transport_fails(self, caplog: pytest.LogCaptureFixture) -> None:
+        network = _RaisingPARNetwork(openid_config=_OPENID_CONFIG_WITH_PAR)
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+
+        with caplog.at_level(logging.WARNING, logger=_PAR_LOGGER):
+            url = asyncio.run(flow.start())
+
+        _assert_secret_absent_from_front_channel(flow, url)
+        messages = [record.getMessage() for record in caplog.records]
+        assert any("ConnectionError" in message and "falling back" in message for message in messages)
+
+    def test_par_fallback_warning_never_includes_secret(self, caplog: pytest.LogCaptureFixture) -> None:
+        network = _RaisingPARNetwork(openid_config=_OPENID_CONFIG_WITH_PAR)
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+
+        with caplog.at_level(logging.WARNING, logger=_PAR_LOGGER):
+            asyncio.run(flow.start())
+
+        assert _SECRET not in caplog.text
+
+    def test_secret_is_sent_in_par_request_body(self) -> None:
+        """PAR is a back-channel POST, so the client authenticates there (RFC 9126 §2)."""
+        network = DummyNetwork(openid_config=_OPENID_CONFIG_WITH_PAR)
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+
+        url = asyncio.run(flow.start())
+
+        par_body = _sent_body(network, "/par")
+        assert par_body["client_id"] == ["test_client"]
+        assert par_body["client_secret"] == [_SECRET]
+        assert "code_challenge" in par_body
+
+        qs = parse_qs(urlsplit(url).query)
+        assert set(qs) == {"client_id", "request_uri"}
+        assert _SECRET not in url
+
+    def test_secret_is_sent_in_token_request_body(self) -> None:
+        network = DummyNetwork()
+        flow = AuthorizationCodeFlow(client=_build_secret_client(network))
+        ctx = AuthorizationCodeContext(state="some_state")
+
+        asyncio.run(flow.start(context=ctx))
+        asyncio.run(flow.resume(_make_redirect_uri(state="some_state")))
+
+        token_body = _sent_body(network, "/token")
+        assert token_body["client_id"] == ["test_client"]
+        assert token_body["client_secret"] == [_SECRET]
+        assert token_body["grant_type"] == ["authorization_code"]
+
+    def test_additional_parameters_cannot_place_credentials_in_authorize_url(self) -> None:
+        """Defence in depth: credential keys are stripped from the URL whatever their source."""
+        flow = AuthorizationCodeFlow(
+            client=_build_client(DummyNetwork()),
+            additional_parameters={
+                "client_secret": _SECRET,
+                "client_assertion": "assertion-value",
+                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                "custom": "kept",
+            },
+        )
+
+        url = asyncio.run(flow.start())
+
+        qs = parse_qs(urlsplit(url).query)
+        assert "client_secret" not in qs
+        assert "client_assertion" not in qs
+        assert "client_assertion_type" not in qs
+        assert qs["custom"] == ["kept"]
+        assert _SECRET not in url
+
+    def test_client_assertion_not_in_authorize_url(self) -> None:
+        import jwt
+
+        assertion = jwt.encode({"iss": "assertion_client"}, "super-long-and-secure-secret-key", algorithm="HS256")
+        config = OAuth2ClientConfiguration(
+            issuer="https://example.com",
+            scope=["openid"],
+            client_authorization=ClientAssertionAuthorization(assertion=assertion),
+            redirect_uri="https://example.com/callback",
+        )
+        network = DummyNetwork()
+        flow = AuthorizationCodeFlow(client=OAuth2Client(configuration=config, network=network))
+
+        url = asyncio.run(flow.start())
+
+        qs = parse_qs(urlsplit(url).query)
+        assert qs["client_id"] == ["assertion_client"]
+        assert "client_assertion" not in qs
+        assert "client_assertion_type" not in qs
+        assert assertion not in url
+
+    def test_client_assertion_is_sent_in_par_request_body(self) -> None:
+        import jwt
+
+        assertion = jwt.encode({"iss": "assertion_client"}, "super-long-and-secure-secret-key", algorithm="HS256")
+        config = OAuth2ClientConfiguration(
+            issuer="https://example.com",
+            scope=["openid"],
+            client_authorization=ClientAssertionAuthorization(assertion=assertion),
+            redirect_uri="https://example.com/callback",
+        )
+        network = DummyNetwork(openid_config=_OPENID_CONFIG_WITH_PAR)
+        flow = AuthorizationCodeFlow(client=OAuth2Client(configuration=config, network=network))
+
+        url = asyncio.run(flow.start())
+
+        par_body = _sent_body(network, "/par")
+        assert par_body["client_assertion"] == [assertion]
+        assert par_body["client_assertion_type"] == ["urn:ietf:params:oauth:client-assertion-type:jwt-bearer"]
+        assert set(parse_qs(urlsplit(url).query)) == {"client_id", "request_uri"}

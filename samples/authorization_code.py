@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -106,8 +107,16 @@ def _context_file_path(args: argparse.Namespace) -> Path:
 
 
 def _save_context(ctx: AuthorizationCodeContext, context_file: Path) -> None:
-    """Persist the context fields needed for resume."""
-    context_file.write_text(json.dumps(ctx.to_dict(), indent=2), encoding="utf-8")
+    """Persist the context fields needed for resume.
+
+    The context holds the PKCE code verifier, so the file is created with
+    owner-only permissions and is never written through a symlink.
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(context_file, flags, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(ctx.to_dict(), handle, indent=2)
+    os.chmod(context_file, 0o600)
 
 
 def _load_context(context_file: Path) -> AuthorizationCodeContext:
