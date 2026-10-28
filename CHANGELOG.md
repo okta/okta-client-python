@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.3.1
+
 ### Security
 
 - `ClientSecretAuthorization` and `ClientAssertionAuthorization` no longer contribute `client_secret`, `client_assertion`, or `client_assertion_type` to `AUTHORIZATION`-category parameters. Previously, `AuthorizationCodeFlow.start()` embedded the client secret (or assertion) as a query parameter in the browser-visible authorize URL whenever Pushed Authorization Requests were unavailable, disabled, or failed, exposing it to browser history, server logs, and `Referer` headers (RFC 6749 §2.3.1). Credentials are still sent on the back channel: in the token request and in the PAR request body (RFC 9126 §2).
